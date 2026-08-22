@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Columbia Gas of Ohio",
+        "description": "Enter the username and password you use to log in at myaccount.columbiagasohio.com.",
+        "data": {
+          "username": "[%key:common::config_flow::data::username%]",
+          "password": "[%key:common::config_flow::data::password%]"
+        }
+      },
+      "reauth_confirm": {
+        "title": "[%key:common::config_flow::title::reauth%]",
+        "description": "The Columbia Gas portal rejected the stored password for {username}. Enter the current password to reconnect.",
+        "data": {
+          "password": "[%key:common::config_flow::data::password%]"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Columbia Gas of Ohio options",
+        "description": "Changing this reloads the integration and applies immediately.",
+        "data": {
+          "update_interval_hours": "Polling interval (hours)"
+        },
+        "data_description": {
+          "update_interval_hours": "How often to sync with the portal. The portal's usage/billing history only advances once a month, so shorter intervals just re-request the same numbers."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "meter_usage": {
+        "name": "Usage"
+      },
+      "latest_bill": {
+        "name": "Latest bill"
+      }
+    }
+  }
+}

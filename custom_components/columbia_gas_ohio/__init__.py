@@ -1,0 +1,36 @@
+"""The Columbia Gas of Ohio integration."""
+
+from __future__ import annotations
+
+from homeassistant.const import Platform
+from homeassistant.core import HomeAssistant
+
+from .coordinator import ColumbiaGasConfigEntry, ColumbiaGasCoordinator
+
+PLATFORMS: list[Platform] = [Platform.SENSOR]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ColumbiaGasConfigEntry) -> bool:
+    """Set up Columbia Gas of Ohio from a config entry."""
+    coordinator = ColumbiaGasCoordinator(hass, entry)
+    await coordinator.async_config_entry_first_refresh()
+    entry.runtime_data = coordinator
+
+    # Options (polling interval) are read once in the coordinator's
+    # __init__, so changing them needs a full reload to take effect -- this
+    # listener does that automatically whenever the options flow saves new
+    # values.
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ColumbiaGasConfigEntry) -> None:
+    """Reload the entry when its options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ColumbiaGasConfigEntry) -> bool:
+    """Unload a config entry."""
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
