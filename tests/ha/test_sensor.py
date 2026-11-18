@@ -11,6 +11,7 @@ import respx
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.columbia_gas_ohio.const import DOMAIN
@@ -65,6 +66,9 @@ def _mock_happy_path() -> None:
 
 @respx.mock
 async def test_meter_and_bill_sensors_created_on_entry_setup(recorder_mock, hass: HomeAssistant) -> None:
+    # The test hass is metric, which converts a gas sensor from Ccf to m3
+    # (10 Ccf -> 28.3). Columbia Gas customers are US customary.
+    hass.config.units = US_CUSTOMARY_SYSTEM
     _mock_happy_path()
     entry = MockConfigEntry(
         domain=DOMAIN, data={"username": "user@example.com", "password": "hunter2"}
