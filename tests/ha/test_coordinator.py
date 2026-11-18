@@ -4,6 +4,8 @@ import.
 
 from __future__ import annotations
 
+from datetime import date
+
 import httpx
 import pytest
 import respx
@@ -12,6 +14,7 @@ from homeassistant.components.recorder.statistics import get_last_statistics
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.components.recorder.common import (
     async_wait_recording_done,
@@ -22,6 +25,7 @@ from custom_components.columbia_gas_ohio.client.models import Account, Meter, Ut
 from custom_components.columbia_gas_ohio.const import DOMAIN
 from custom_components.columbia_gas_ohio.coordinator import (
     ColumbiaGasCoordinator,
+    _bill_cost_statistic_id,
     _bill_statistic_id,
     _statistic_id,
 )
@@ -66,11 +70,11 @@ BILLING_CSV = """Bill Date,Type,Description,Amount
 """
 
 
-def _mock_happy_path() -> None:
+def _mock_happy_path(usage_csv: str = USAGE_CSV) -> None:
     respx.get(f"{BASE_URL}/login").mock(return_value=httpx.Response(200, text=LOGIN_PAGE))
     respx.post(f"{BASE_URL}/login").mock(return_value=httpx.Response(200, text=DASHBOARD_AFTER_LOGIN))
     respx.get(f"{BASE_URL}/dashboard").mock(return_value=httpx.Response(200, text=DASHBOARD_PAGE))
-    respx.get(f"{BASE_URL}/UsageHistoryAllCsv/0").mock(return_value=httpx.Response(200, text=USAGE_CSV))
+    respx.get(f"{BASE_URL}/UsageHistoryAllCsv/0").mock(return_value=httpx.Response(200, text=usage_csv))
     respx.get(f"{BASE_URL}/BillingHistoryAllCsv").mock(return_value=httpx.Response(200, text=BILLING_CSV))
 
 
@@ -107,6 +111,48 @@ async def test_first_refresh_imports_monthly_and_bill_statistics(recorder_mock, 
         get_last_statistics, hass, 1, "columbia_gas_ohio:555000111022_bill_amount", True, {"sum"}
     )
     assert bill_stats["columbia_gas_ohio:555000111022_bill_amount"][0]["sum"] == 56.42
+
+
+@respx.mock
+async def test_bill_cost_statistic_is_dated_at_period_end_local_midnight(recorder_mock, hass: HomeAssistant) -> None:
+    _mock_happy_path()
+    coordinator = ColumbiaGasCoordinator(hass, _entry(hass))
+
+    await coordinator.async_refresh()
+    await async_wait_recording_done(hass)
+
+    cost_id = _bill_cost_statistic_id(Account(account_id="555000111022"))
+    assert cost_id == "columbia_gas_ohio:555000111022_bill_cost"
+    cost_stats = await hass.async_add_executor_job(get_last_statistics, hass, 1, cost_id, True, {"sum"})
+    row = cost_stats[cost_id][0]
+    assert row["sum"] == 56.42
+    # BILLING_CSV's only bill is dated 8/5/2026.
+    assert row["start"] == dt_util.start_of_local_day(date(2026, 8, 5)).timestamp()
+
+
+@respx.mock
+async def test_sparse_monthly_readings_get_first_of_month_anchors(recorder_mock, hass: HomeAssistant) -> None:
+    sparse_csv = USAGE_CSV + "11/3/2026,ACTUAL READING,50.00,29,20.00,0%,$80.00,$2.75\n"
+    _mock_happy_path(sparse_csv)
+    coordinator = ColumbiaGasCoordinator(hass, _entry(hass))
+
+    await coordinator.async_refresh()
+    await async_wait_recording_done(hass)
+
+    statistic_id = "columbia_gas_ohio:gas_555000111022"
+    rows = await hass.async_add_executor_job(get_last_statistics, hass, 10, statistic_id, True, {"sum"})
+    by_start = {row["start"]: row["sum"] for row in rows[statistic_id]}
+    # Readings start Jul 6 (sum 10) and Oct 5 (sum 30); Aug 1, Sep 1 and Oct 1 hold none.
+    for anchor in (date(2026, 8, 1), date(2026, 9, 1), date(2026, 10, 1)):
+        assert by_start[dt_util.start_of_local_day(anchor).timestamp()] == 10.0
+    assert max(by_start.values()) == 30.0
+    assert len(by_start) == 5
+
+    # A second refresh with unchanged data must not add or alter anything.
+    await coordinator.async_refresh()
+    await async_wait_recording_done(hass)
+    again = await hass.async_add_executor_job(get_last_statistics, hass, 10, statistic_id, True, {"sum"})
+    assert {row["start"]: row["sum"] for row in again[statistic_id]} == by_start
 
 
 @respx.mock
