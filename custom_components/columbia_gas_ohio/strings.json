@@ -33,10 +33,12 @@
         "title": "Columbia Gas of Ohio options",
         "description": "Changing this reloads the integration and applies immediately.",
         "data": {
-          "update_interval_hours": "Polling interval (hours)"
+          "update_interval_hours": "Polling interval (hours)",
+          "expose_account_details": "Show service address and account holder on the bill sensor"
         },
         "data_description": {
-          "update_interval_hours": "How often to sync with the portal. The portal's usage/billing history only advances once a month, so shorter intervals just re-request the same numbers."
+          "update_interval_hours": "How often to sync with the portal. The portal's usage/billing history only advances once a month, so shorter intervals just re-request the same numbers.",
+          "expose_account_details": "Off by default. Sensor attributes are saved in Home Assistant's history database and can be read by dashboards, voice assistants and other integrations, so the address and name stay out of them unless you turn this on."
         }
       }
     }

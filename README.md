@@ -23,8 +23,11 @@ entirely optional, never required to use it.
   Assistant's long-term statistics, so it shows up correctly in
   **Settings -> Dashboards -> Energy** once you add the gas statistic there.
 - One sensor with your most recent bill amount, due date, billing period,
-  days in the billing period, cost per day, service address, and account
-  holder name as attributes.
+  days in the billing period, and cost per day as attributes. The service
+  address and account holder's name are **not** shown unless you turn on
+  *Show service address and account holder* in the integration's options:
+  attributes are saved in Home Assistant's history database and can be read
+  by dashboards, voice assistants and other integrations.
 - Bill amounts are also imported as a long-term statistic (running total
   billed, one point per billing period) so bill cost is graphable
   month-over-month via a Statistics Graph card or Developer Tools ->

@@ -24,7 +24,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_EXPOSE_ACCOUNT_DETAILS, DEFAULT_EXPOSE_ACCOUNT_DETAILS, DOMAIN
 from .coordinator import ColumbiaGasConfigEntry, ColumbiaGasCoordinator, MeterData
 
 PARALLEL_UPDATES = 0
@@ -124,14 +124,17 @@ class ColumbiaGasBillSensor(CoordinatorEntity[ColumbiaGasCoordinator], SensorEnt
         bill = self.coordinator.data.bills.get(self._account_id)
         if bill is None:
             return {}
-        account = self.coordinator.data.accounts.get(self._account_id)
         days_in_period = (bill.period_end - bill.period_start).days
-        return {
+        attributes: dict[str, str | float | None] = {
             "due_date": bill.due_date.isoformat() if bill.due_date else None,
             "period_start": bill.period_start.isoformat(),
             "period_end": bill.period_end.isoformat(),
             "days_in_period": days_in_period or None,
             "cost_per_day": round(bill.amount_total / days_in_period, 2) if days_in_period else None,
-            "service_address": account.service_address if account else None,
-            "account_holder": account.name if account else None,
         }
+        options = self.coordinator.config_entry.options
+        if options.get(CONF_EXPOSE_ACCOUNT_DETAILS, DEFAULT_EXPOSE_ACCOUNT_DETAILS):
+            account = self.coordinator.data.accounts.get(self._account_id)
+            attributes["service_address"] = account.service_address if account else None
+            attributes["account_holder"] = account.name if account else None
+        return attributes
